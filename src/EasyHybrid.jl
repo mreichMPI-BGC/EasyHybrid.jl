@@ -1,5 +1,5 @@
 module EasyHybrid
 
-# Write your package code here.
-
+include("hybrid_mr.jl")
+include("LinHybMod.jl")
 end
