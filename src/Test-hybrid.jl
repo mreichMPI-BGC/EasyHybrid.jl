@@ -1,7 +1,6 @@
 ### Tests the fit_df! and RNNfit_df! functions with a simple synthetic data set
 ##
-#include("hybrid_mr.jl")
-using MRTools
+using MRTools, EasyHybrid
 using Flux
 #include("LinHybMod.jl")
 
@@ -23,7 +22,7 @@ end
 
 ## Illustrate data
 fig = HDFigure()
-draw!(fig[1,1:2], data(df) * mapping(:x1, :obs, color=:x2); axis=(;limits=(nothing, (0,nothing))) )
+draw!(fig[1,1:2], data(df) * mapping(:x1, :obs, color=:x2); axis=(;limits=(nothing, (0,nothing))) );
 Colorbar(fig[1,3], current_axis().scene.plots[1], label="x2")
 draw!(fig[1,4], data(df) * mapping(:x2, :a_syn))
 fig
@@ -35,7 +34,7 @@ hymod = LinearHybridModel([:x2, :x3], [:x1], 1, 5, b=[0.0f0])
 # Fit the model with the non-stateful function fit_df! to the first half of the data set
 # One does not need to put predictors explicitly, if they are explicit in the model
 res = fit_df!(hymod, df[1:500,:], [:obs], Flux.mse, n_epoch=500, batchsize=100, opt=Adam(0.01), parameters2record=[:b],
-    latents2record=[:pred => :obs, :a => "a_syn"], patience=300, stateful=false)
+    latents2record=[:pred => :obs, :a => "a_syn"], patience=300, stateful=false);
 
 test_df = df[501:1000, :]
 
@@ -113,7 +112,7 @@ df_pred = predict_all2df(dynres2, df)
 df = @chain DataFrame(rand(Float32, 1000, 3), :auto) begin
     @transform :seqID = @bycol repeat(1:50, inner=20)
     @transform :a_syn = exp(-5.0f0((:x2 - 0.7f0))^2.0f0) + :x3 / 10.0f0
-    @aside b = 20.0f0
+    @aside b = 2.0f0
     @aside obs_ini = 100.0f0
     @transform :force = :a_syn * :x1 + b
     @transform :force = 1.0f0 - exp(-:force)
@@ -180,59 +179,9 @@ end
 Flux.@functor LinearStateFullModel
 
 lsm = LinearStateFullModel([:x2, :x3])
-dynres3 = fit_df!(lsm, df, [:pred_syn], Flux.mse, stateful=true, shuffle=false, n_epoch=200, batchsize=10, opt=Adam(0.008), parameters2record=[:b], patience=300)
+dynres3 = fit_df!(lsm, df, [:pred_syn], Flux.mse, stateful=true, shuffle=false, n_epoch=1000, batchsize=10, opt=Adam(0.01), parameters2record=[:b], patience=300)
 
 
-
-######################################################
-### Case 3: Super simple test for Physical part of the model is stateful 
-### Still quite some trial and error
-### Unclear how optimze ini state, not enirely clear inner model state needs to a Matrix
-######################################################
-df = @chain DataFrame(randn(Float32, 1000, 3), :auto) begin
-    @transform :seqID = @bycol repeat(1:50, inner=20)
-    @transform :force = :x1 + :x2 + :x3 + 0.8f0
-    @groupby :seqID
-    @transform :obs = @bycol accumulate(-, :force, init=10.0f0) # This is the physical "stateful part"
-    @transform :pred_syn = :obs
-end
-
-
-### Model definition
-
-##
-struct innerModel{S}
-    state0::S
-end
-
-function (m::innerModel{S})(h, x) where {S}
-    return h .- x, h .- x
-end
-Flux.@functor innerModel
-
-
-struct SimpleStateFullModel
-    stateupdater
-end
-
-function SimpleStateFullModel()
-    SimpleStateFullModel(Flux.Recur(innerModel(reshape([10.0f0], 1, 1)), reshape([10.0f0], 1, 1)))
-end
-function (m::SimpleStateFullModel)(x)
-    v(sym::Symbol) = Array(x([sym]))
-    #force =  v(:x1) + v(:x2) + v(:x3)
-    force = v(:force)
-    out = m.stateupdater(force)
-    return ((; out))
-end
-
-# Call @functor to allow for training the custom model
-Flux.@functor SimpleStateFullModel
-##
-simp = SimpleStateFullModel()
-Flux.reset!(simp)
-out = simp(permutedims(groupby(df, :seqID) |> tokeyedArray, (1, 3, 2)))
-permutedims(out.out, (1, 3, 2)) |> vec ≈ df.obs
 
 
 
@@ -253,13 +202,12 @@ data(df) * mapping([:a_dyn_syn, :obs_dyn1], col=dims(1)) * visual(Lines) |> draw
 ## Result depends on x1 and slope a_dyn_syn
 data(df) * mapping([:x1, :x2], [:obs_dyn1 :obs_dyn2], color=:a_dyn_syn, row=dims(1), col=dims(2))  |> draw
 
-## Using stateless model of course doesn't really work (but manage as expected to predict the first point)
+## Using stateful model 
 hy_dynmod = LinearHybridModel2output([:x2, :x3], [:x1], 1, 5, nn_chain=GRU_NN, a2=[0f0], b=[0f0])
 ## Using stateful model - with stateful = true the df is grouped into sequences according to seqID and batched along this
 ## Low learning rate for didactical reasons (one can see the opt better)
-dynres2 = HybridML.fit_df!(hy_dynmod, df, [:obs_dyn1, :obs_dyn2], Flux.mse, stateful=true, n_epoch=500, batchsize=10, opt=Adam(0.005),
+dynres2 = fit_df!(hy_dynmod, df, [:obs_dyn1, :obs_dyn2], Flux.mse, stateful=true, n_epoch=500, batchsize=10, opt=Adam(0.005),
     parameters2record=[:a2, :b], latents2record=[:a => :a_dyn_syn, :pred1 => :obs_dyn1, :pred2 => :obs_dyn2], patience=50)
-
 ### Make a direct evaluation
 fig3=evalfit(dynres2, df)
 

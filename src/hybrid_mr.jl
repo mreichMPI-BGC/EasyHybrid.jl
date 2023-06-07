@@ -351,10 +351,11 @@ function fit_df!(model, data, predictors, forcing, target::Vector{Symbol}, lossf
     end
 
     if showboards
-        # Initialize plotting windows
+         #Initialize plotting windows
         GLMakie.set_window_config!(float=true)
         trainScreen=GLMakie.Screen()
         latentScreen=GLMakie.Screen()
+    end
 
 
         # Define entities to plot on trainboard as Points2f Vectors wrapped as Observable
@@ -372,7 +373,7 @@ function fit_df!(model, data, predictors, forcing, target::Vector{Symbol}, lossf
         # Define entities to plot on latentboard
 
         # Run model with latent output
-        
+        fig2=nothing
         if latents2record[1].first != [] 
             pred = stateful ? predict_all(model, valiloader.x, Val(:stateful)) : predict_all(model, valiloader.x)
             pred = evec(pred)
@@ -384,9 +385,9 @@ function fit_df!(model, data, predictors, forcing, target::Vector{Symbol}, lossf
             alllatentnames = latents2record |> Observable
             fig2=latentboard(alllatentdata, alllatentnames)
         end
-    else # if showboards
-        trainScreen = latentScreen = nothing
-    end
+    #else # if showboards
+    #    fig1 = fig2 = nothing
+    #end
 
     if showprogress
         p = Progress(n_epoch, barglyphs=BarGlyphs("[=> ]"), color = :yellow)
@@ -418,7 +419,7 @@ function fit_df!(model, data, predictors, forcing, target::Vector{Symbol}, lossf
             patience_cnt += 1
         end
 
-        if showboards
+        #if showboards
             # Record plotting variables for trainboard
             push!(vali_loss2plot[], Point2f(e,vali_losses[end] |> log10))
             push!(train_loss2plot[], Point2f(e, train_losses[end] |> log10))
@@ -455,11 +456,11 @@ function fit_df!(model, data, predictors, forcing, target::Vector{Symbol}, lossf
                 alllatentdata[] = map(latents2record) do ll
                     pred[ll.first |> Symbol] => valiloader.x(row = ll.second |> Symbol)
                 end 
-                display(latentScreen, fig2)
+                showboards && display(latentScreen, fig2)
             end
-        display(trainScreen, fig1)
+        showboards && display(trainScreen, fig1)
 
-        end
+        #end
 
 
         showprogress && next!(p; showvalues = [

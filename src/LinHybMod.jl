@@ -1,5 +1,5 @@
 using Flux
-export LinearHybridModel
+export LinearHybridModel, LinearHybridModel2output, GRU_NN, DenseNN
 ########################################
 # Model definition y = ax + b, where 
 ########################################
