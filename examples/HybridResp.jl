@@ -1,5 +1,7 @@
-#include("helpers/startup.jl")
-#include("hybrid_mr.jl")
+using EasyHybrid
+using MRTools
+using Flux
+
 GLMakie.activate!(;float=true)
 update_theme!(fontsize=2 * 14)
 
@@ -49,39 +51,32 @@ end
 Flux.@functor RespModel_Q10_geogen
 
 ##
-
-
+file=string(@__DIR__) * "\\..\\data\\AT-Neu.HH.csv"
 ##
-df = @c "./data/AT-Neu.HH.csv" CSV.read(DataFrame, missingstring="NA") @transform(:NEE = coalesce(:NEE, :RECO_NT-:GPP_NT))
+df = @chain file CSV.read(DataFrame, missingstring="NA") @transform(:NEE = coalesce(:NEE, :RECO_NT-:GPP_NT))
 transform!(df, names(df, Number) .=> ByRow(Float32), renamecols=false)
 # mapcols(df) do col
 #     eltype(col) === Int ? Float32.(col) : col
 # end
 df = @chain df begin 
         @transform :Rb_syn = max(:Rb_syn, 0.0f0)
-        @transform :RECO_syn = :Rb_syn * 1.5f0 ^ (0.1f0(:T - 15.0f0)) + 4.0f0
-        @transform :RECO_syn = @bycol :RECO_syn .+ 10f0randn32(nrow(df))
+        @transform :RECO_syn = :Rb_syn * 1.5f0 ^ (0.1f0(:TA - 15.0f0)) + 4.0f0
+        @transform :RECO_syn = @bycol :RECO_syn .+ 2f0randn32(nrow(df)) ## adding some noise
 end
 
-#Create further variables
-
-##
 
 # Clean df from non numeric and make a KeyedArray
 df =select(df, names(df, Number)) |> disallowmissing
-dk = df |> tokeyedArray
 
-#Test forward run
+# Instantaniate model
 fpmod = RespModel_Q10_geogen([:SW_POT_sm_diff, :SW_POT_sm],[2.0f0], [0f0])
 
-RECO = fpmod(dk) |> vec;
-scatter(RECO)
-allinfo = fpmod(dk,:infer) |> evec
-scatter(allinfo.Rb)
 ##
 #Define latents to show and fit
 latents2compare = [Symbol(v) => Symbol(v, "_syn") for v in ["Rb"]]
-res=fit_df!(fpmod, df, [:RECO_syn], Flux.mse, n_epoch=500, batchsize=480, opt=Adam(0.01), parameters2record=[:Q10, :geog_flux], latents2record=latents2compare, patience=300, stateful=false)
+
+res=fit_df!(fpmod, df, [:RECO_syn], Flux.mse, n_epoch=500, batchsize=480, opt=Adam(0.01), 
+    parameters2record=[:Q10, :geog_flux], latents2record=latents2compare, patience=300, stateful=false, renamer=[:TA => :T])
 ##
 
 ##
@@ -92,18 +87,21 @@ ax_RE = Axis(fig[3,1], ylabel ="Respiration"); lines!(ax_RE, df.year .+ df.doy./
 fig
 ##
 
-infer = res.bestModel(dk, :infer) |> evec 
-scatter(infer.Rb, color=(:black, 0.05))
-scatter!(df.Rb_syn, color=(:red, 0.05))
+pred_df = predict_all2df(res.bestModel, rename(df, :TA => :T))
+scatter(pred_df.Rb, color=(:black, 0.05))
+scatter!(pred_df.Rb_syn, color=(:red, 0.05))
 
-scatter(infer.RECO , df.RECO_syn , color=(:black, 0.05))
+scatter(pred_df.RECO , pred_df.RECO_syn , color=(:black, 0.05))
 ablines!(0,1, color=:red, linewidth=3, linestyle=:dash)
 
 println(res.bestModel.Q10)
 println(res.bestModel.geog_flux)
 
+
+### STOP ###
+
 ### Fit Rb directly with a FF Neural net
-resRb=fit_df!(dt, [:SW_POT_sm, :SW_POT_sm_diff], :Rb_syn, (m, d) -> Flux.mse(m(d.x), d.y), model=chain4Rbfun(2), n_epoch=200, batchsize=480)
+#resRb=fit_df!(df, [:SW_POT_sm, :SW_POT_sm_diff], :Rb_syn, (m, d) -> Flux.mse(m(d.x), d.y), model=chain4Rbfun(2), n_epoch=200, batchsize=480)
 
 
 
