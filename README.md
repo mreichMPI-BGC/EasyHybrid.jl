@@ -9,7 +9,10 @@
 
 The idea of this repo to provide a relatively simple approach for hybrid modelling, i.e. creating a model which combines machine learning with domain scientific modelling. In a general sense $y = g(f(x), z, \theta)$ where $g$ is a parametric function with parameters $\theta$ to be learned, and $f$ is non-parametric and to be learned. Here $f$ is represented with a neural net in Flux.jl.  
 
-## Quick intro example
+## Quick intro example (more in the ./example/ folder)
+
+To make it work, you need to first add the convenience package https://github.com/mreichMPI-BGC/MRTools.jl . EasyHybrid depends on it. 
+It bundles packages that are needed and some helper functions of my own. (I know it is not optimal). 
 ```
 using EasyHybrid
 ```
