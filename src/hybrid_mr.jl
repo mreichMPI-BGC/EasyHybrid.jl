@@ -7,7 +7,7 @@ import Random
 import Chain: @chain
 #using DataFrames, SplitApplyCombine
 
-export fit_df!, predict_all2df, select_predictors, evalfit
+export fit_df!, predict_all2df, select_predictors, evalfit, tokeyedArray
 
 #include("../JMR_Base/MRplot.jl")
 ##
@@ -134,7 +134,7 @@ function train_board(train_loss, vali_loss,
      ablines!(scat1, 0, 1, color=:red, linewidth=2, linestyle=:dash )
      scatter!(scat2, vali2scat, color=valicolors)
      ablines!(scat2, 0, 1, color=:red, linewidth=2, linestyle=:dash )
-    fig
+    return line, fig
 end
 
 # Create dashboard to follow trace of latent variables during training
@@ -367,7 +367,7 @@ function fit_df!(model, data, predictors, forcing, target::Vector{Symbol}, lossf
         train2plot=Point2f.(rand(100), rand(100)) |> Observable
         traincolors = fill((:blue,0.4), 100) |> Observable
 
-        fig1 = train_board(train_loss2plot, vali_loss2plot, 
+        trainpanel, fig1 = train_board(train_loss2plot, vali_loss2plot, 
             vali2plot, valicolors,  train2plot, traincolors,  trace_param2plot)
 
         # Define entities to plot on latentboard
@@ -445,6 +445,8 @@ function fit_df!(model, data, predictors, forcing, target::Vector{Symbol}, lossf
 
             # Notify Observables that very only pushed (not newly assigned)
             notify(vali_loss2plot); notify(train_loss2plot); notify(trace_param2plot)
+            alllosses=[train_loss2plot[];vali_loss2plot[]] .|> last
+            ylims!(trainpanel, minimum(alllosses), quantile(alllosses,0.99))
 
             # Update the latent variable plot
             if latents2record[1].first != [] 
