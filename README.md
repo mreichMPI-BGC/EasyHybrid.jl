@@ -11,7 +11,7 @@ The idea of this repo to provide a relatively simple approach for hybrid modelli
 
 ## Quick intro example (more in the ./example/ folder)
 
-To make it work, you need to first add the convenience package https://github.com/mreichMPI-BGC/MRTools.jl . 
+To make it work, you need to first add the convenience package https://github.com/mreichMPI-BGC/MRTools.jl . EasyHybrid depends on it. 
 It bundles packages that are needed and some helper functions of my own. (I know it is not optimal). 
 ```
 using EasyHybrid
