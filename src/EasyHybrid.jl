@@ -1,8 +1,10 @@
 module EasyHybrid
+using Flux
+using DataFrames
+using AxisKeys
+using MLJ: partition
 
-#using Reexport
-#@reexport using Flux
+include("tools.jl")
+include("Hybrid_models.jl")
 
-include("hybrid_mr.jl")
-include("LinHybMod.jl")
 end
