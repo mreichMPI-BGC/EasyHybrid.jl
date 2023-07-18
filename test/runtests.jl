@@ -33,4 +33,16 @@ dk_twos = gen_dk_2outputs()
     out_twos = lhm_twos(dk_twos, :infer)
     @test length(out_twos) == 3
     #test model output
+
+    # test model instantiation
+    fpmod = FluxPartModel_NEE_ET2([:TA_F, :SW_IN_F], [:doy], [:VPD_F, :hour], [:doy])
+    @test typeof(fpmod) <: FluxPartModel_NEE_ET2
+    # test model instantiation
+    Q10_m = FluxPartModel_Q10([:TA, :VPD], [:SW_POT_sm_diff, :SW_POT_sm]; Q10=[2.0f0])
+    @test Q10_m.Q10 == [2.0f0]
+
+    # test model instantiation
+    sinus_m = SinusHybridModel([:x1], [:x1], 1; b=[0.0f0])
+    @test sinus_m.b == [0.0f0]
+
 end
